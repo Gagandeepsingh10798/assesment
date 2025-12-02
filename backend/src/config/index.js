@@ -36,7 +36,7 @@ const config = {
   // Google GenAI configuration
   genai: {
     apiKey: process.env.GOOGLE_API_KEY,
-    model: 'gemini-2.0-flash',
+    model: 'gemini-3-pro-preview',
     defaultFileSearchStore: 'default-file-search-store',
   },
 

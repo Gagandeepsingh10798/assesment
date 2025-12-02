@@ -415,18 +415,26 @@ class GenAIService {
         if (fileText) {
           fileSearchContext = fileText;
           console.log('File search context length:', fileSearchContext.length);
+          console.log('File search context preview:', fileSearchContext.substring(0, 500));
         }
 
         // Extract file search citations/grounding metadata
         const fileMetadata = fileResult.candidates?.[0]?.groundingMetadata;
         if (fileMetadata) {
           console.log('File search grounding metadata found');
+          console.log('File metadata keys:', Object.keys(fileMetadata));
           if (fileMetadata.groundingChunks) {
+            console.log('File search groundingChunks count:', fileMetadata.groundingChunks.length);
             allCitations.fileSearchResults.push(...fileMetadata.groundingChunks);
             allCitations.groundingChunks.push(...fileMetadata.groundingChunks);
           }
           if (fileMetadata.groundingSupports) {
+            console.log('File search groundingSupports count:', fileMetadata.groundingSupports.length);
             allCitations.groundingSupports.push(...fileMetadata.groundingSupports);
+          }
+          // Check for retrievalMetadata which contains the actual document references
+          if (fileMetadata.retrievalMetadata) {
+            console.log('File search retrievalMetadata found:', JSON.stringify(fileMetadata.retrievalMetadata).substring(0, 500));
           }
         }
       } catch (error) {
@@ -441,13 +449,24 @@ class GenAIService {
       console.log('Step 1: No file search store available, skipping file search');
     }
 
-    // STEP 2: ALWAYS do Google Web Search (with file search context if available)
+    // STEP 2: ALWAYS do Google Web Search (search for relevant medical information)
     console.log('Step 2: Web Search (Google Search)');
     try {
-      // Include file search context in the web search query for better results
-      const webSearchQuery = fileSearchContext
-        ? `Based on this context from uploaded documents:\n${fileSearchContext.substring(0, 2000)}\n\nUser question: ${message}`
-        : message;
+      // Create a focused web search query based on the file content
+      // Extract key terms from file search context to search for
+      let webSearchQuery = message;
+      
+      // If we have file context, extract key medical terms to search for
+      if (fileSearchContext) {
+        // Look for medical codes and key terms in the file search context
+        const medicalCodeMatches = fileSearchContext.match(/\b(N39\.0|ICD-10|UTI|urinary tract infection|HTN|hypertension|dementia|osteoporosis|leukocytosis|hypokalemia|aspiration pneumonia)\b/gi);
+        if (medicalCodeMatches && medicalCodeMatches.length > 0) {
+          const uniqueTerms = [...new Set(medicalCodeMatches)].slice(0, 5);
+          webSearchQuery = `Medical information about: ${uniqueTerms.join(', ')}. ${message}`;
+        }
+      }
+      
+      console.log('Web search query:', webSearchQuery.substring(0, 200));
 
       // Use exact format from documentation for Google Search
       const webResult = await this.ai.models.generateContent({
@@ -465,20 +484,34 @@ class GenAIService {
       if (webText) {
         webSearchContext = webText;
         console.log('Web search context length:', webSearchContext.length);
+        console.log('Web search context preview:', webSearchContext.substring(0, 500));
       }
 
       // Extract web search citations/grounding metadata
       const webMetadata = webResult.candidates?.[0]?.groundingMetadata;
       if (webMetadata) {
         console.log('Web search grounding metadata found');
+        console.log('Web metadata keys:', Object.keys(webMetadata));
         if (webMetadata.groundingChunks) {
+          console.log('Web search groundingChunks count:', webMetadata.groundingChunks.length);
+          // Log first chunk structure
+          if (webMetadata.groundingChunks[0]) {
+            console.log('First web chunk structure:', JSON.stringify(webMetadata.groundingChunks[0]).substring(0, 300));
+          }
           allCitations.groundingChunks.push(...webMetadata.groundingChunks);
         }
         if (webMetadata.groundingSupports) {
+          console.log('Web search groundingSupports count:', webMetadata.groundingSupports.length);
           allCitations.groundingSupports.push(...webMetadata.groundingSupports);
         }
         if (webMetadata.webSearchQueries) {
+          console.log('Web search queries:', webMetadata.webSearchQueries);
           allCitations.webSearchQueries.push(...webMetadata.webSearchQueries);
+        }
+        // Extract search entry point - this contains rendered HTML with web results
+        if (webMetadata.searchEntryPoint?.renderedContent) {
+          console.log('Web search entry point found');
+          allCitations.searchEntryPoint = webMetadata.searchEntryPoint.renderedContent;
         }
       }
     } catch (error) {
@@ -487,32 +520,38 @@ class GenAIService {
 
     // STEP 3: Generate final response using all gathered context
     console.log('Step 3: Generating final response');
+    console.log('Has file search context:', !!fileSearchContext);
+    console.log('Has web search context:', !!webSearchContext);
     
     let finalPrompt = message;
     let hasContext = false;
 
     if (fileSearchContext || webSearchContext) {
       hasContext = true;
-      finalPrompt = `You are a medical assistant. Answer the user's question using the provided information. Always cite your sources.
+      finalPrompt = `You are a helpful medical and reimbursement assistant. You have access to uploaded document content and web search results. Use this information to answer the user's question comprehensively.
+
+IMPORTANT: The information below contains actual content from the user's uploaded documents and web search results. Use this information to answer the question. Do NOT say you cannot access uploaded files - the content is provided below.
 
 `;
       if (fileSearchContext) {
-        finalPrompt += `=== Information from Uploaded Documents ===
+        finalPrompt += `=== UPLOADED DOCUMENT CONTENT ===
 ${fileSearchContext}
 
 `;
       }
       if (webSearchContext) {
-        finalPrompt += `=== Information from Web Search ===
+        finalPrompt += `=== WEB SEARCH RESULTS ===
 ${webSearchContext}
 
 `;
       }
-      finalPrompt += `=== User Question ===
+      finalPrompt += `=== USER QUESTION ===
 ${message}
 
-Please provide a comprehensive answer based on the above information. Include citations to the sources used.`;
+Based on the document content and web search results provided above, please give a comprehensive answer. For medical codes, explain their significance. Include citations numbered [1], [2], etc.`;
     }
+    
+    console.log('Final prompt length:', finalPrompt.length);
 
     const finalResult = await this.ai.models.generateContent({
       model: modelName,
@@ -591,12 +630,13 @@ Please provide a comprehensive answer based on the above information. Include ci
     citations.searchQueries = [...new Set(citations.webSearchQueries)];
 
     console.log(`Response processed: ${text.length} chars, ${citations.processedChunks.length} citations`);
+    console.log(`Web search queries: ${citations.webSearchQueries.length}, File search results: ${citations.fileSearchResults.length}`);
 
     return { 
       text, 
       citations,
       hasFileSearch: citations.fileSearchResults.length > 0,
-      hasWebSearch: citations.webSearchQueries.length > 0,
+      hasWebSearch: citations.webSearchQueries.length > 0 || citations.searchEntryPoint,
     };
   }
 
