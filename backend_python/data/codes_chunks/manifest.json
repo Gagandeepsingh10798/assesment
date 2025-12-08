@@ -1,0 +1,106 @@
+{
+  "totalCodes": 164009,
+  "chunkCount": 14,
+  "targetChunkSizeMB": 25,
+  "createdAt": "2025-11-29T11:07:56.611Z",
+  "chunks": [
+    {
+      "fileName": "codes_chunk_001.json",
+      "codeCount": 12505,
+      "sizeMB": 23.46,
+      "startIndex": 0,
+      "endIndex": 12504
+    },
+    {
+      "fileName": "codes_chunk_002.json",
+      "codeCount": 12505,
+      "sizeMB": 23.35,
+      "startIndex": 12505,
+      "endIndex": 25009
+    },
+    {
+      "fileName": "codes_chunk_003.json",
+      "codeCount": 12505,
+      "sizeMB": 20.46,
+      "startIndex": 25010,
+      "endIndex": 37514
+    },
+    {
+      "fileName": "codes_chunk_004.json",
+      "codeCount": 12505,
+      "sizeMB": 20.02,
+      "startIndex": 37515,
+      "endIndex": 50019
+    },
+    {
+      "fileName": "codes_chunk_005.json",
+      "codeCount": 12505,
+      "sizeMB": 20.92,
+      "startIndex": 50020,
+      "endIndex": 62524
+    },
+    {
+      "fileName": "codes_chunk_006.json",
+      "codeCount": 12505,
+      "sizeMB": 53.81,
+      "startIndex": 62525,
+      "endIndex": 75029
+    },
+    {
+      "fileName": "codes_chunk_007.json",
+      "codeCount": 12505,
+      "sizeMB": 43.71,
+      "startIndex": 75030,
+      "endIndex": 87534
+    },
+    {
+      "fileName": "codes_chunk_008.json",
+      "codeCount": 12505,
+      "sizeMB": 5.5,
+      "startIndex": 87535,
+      "endIndex": 100039
+    },
+    {
+      "fileName": "codes_chunk_009.json",
+      "codeCount": 12505,
+      "sizeMB": 1.99,
+      "startIndex": 100040,
+      "endIndex": 112544
+    },
+    {
+      "fileName": "codes_chunk_010.json",
+      "codeCount": 12505,
+      "sizeMB": 2.22,
+      "startIndex": 112545,
+      "endIndex": 125049
+    },
+    {
+      "fileName": "codes_chunk_011.json",
+      "codeCount": 12505,
+      "sizeMB": 2.39,
+      "startIndex": 125050,
+      "endIndex": 137554
+    },
+    {
+      "fileName": "codes_chunk_012.json",
+      "codeCount": 12505,
+      "sizeMB": 2.22,
+      "startIndex": 137555,
+      "endIndex": 150059
+    },
+    {
+      "fileName": "codes_chunk_013.json",
+      "codeCount": 12505,
+      "sizeMB": 2.65,
+      "startIndex": 150060,
+      "endIndex": 162564
+    },
+    {
+      "fileName": "codes_chunk_014.json",
+      "codeCount": 1444,
+      "sizeMB": 0.21,
+      "startIndex": 162565,
+      "endIndex": 164008
+    }
+  ]
+}
