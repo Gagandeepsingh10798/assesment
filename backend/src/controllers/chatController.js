@@ -1,9 +1,15 @@
 /**
  * Chat Controller
- * Handles AI chat operations with Google GenAI
+ * Handles AI chat operations with Multi-Agent Orchestration
+ * 
+ * Flow:
+ * 1. User sends query
+ * 2. Query Classifier determines query type (SQL/PDF/General)
+ * 3. Route to appropriate agent
+ * 4. Return response with context and citations
  */
 
-import genaiService from '../services/genaiService.js';
+import agentService from '../services/agentService.js';
 import codeService from '../services/codeService.js';
 import { ApiError } from '../middleware/errorHandler.js';
 
@@ -36,7 +42,13 @@ IMPORTANT GUIDELINES:
 CLASSIFICATION THRESHOLDS:
 - Profitable: Margin > 10% of Total Payment
 - Break-Even: Margin between -5% and 10% of Total Payment
-- Loss: Margin < -5% of Total Payment`;
+- Loss: Margin < -5% of Total Payment
+
+SITES OF SERVICE EXPLANATION:
+- IPPS: Inpatient Prospective Payment System (DRG-based hospital inpatient)
+- HOPD: Hospital Outpatient Department (APC-based outpatient)
+- ASC: Ambulatory Surgical Center (separate payment rates)
+- OBL: Office-Based Lab (physician fee schedule)`;
 
 /**
  * Extract code references from message
@@ -78,8 +90,13 @@ function getCodeContext(codes) {
 }
 
 /**
- * Process chat message
+ * Process chat message with Multi-Agent Orchestration
  * POST /api/chat
+ * 
+ * Flow:
+ * 1. Classify query type (SQL, PDF, or General)
+ * 2. Route to appropriate agent
+ * 3. Return enriched response
  */
 export const processChat = async (req, res) => {
   const { message } = req.body;
@@ -88,45 +105,79 @@ export const processChat = async (req, res) => {
     throw ApiError.badRequest('Message is required');
   }
 
-  // Extract code references and get context
-  const codeRefs = extractCodeReferences(message);
-  const codeContext = getCodeContext(codeRefs);
-
-  // Build context string
-  let contextString = '';
-  if (codeContext.length > 0) {
-    contextString = '\n\n[Code Database Results]\n';
-    for (const code of codeContext) {
-      contextString += `Code: ${code.code}\n`;
-      contextString += `Description: ${code.description}\n`;
-      contextString += `Category: ${code.category}\n`;
-      if (code.payments) {
-        contextString += `Payments: IPPS=$${code.payments.IPPS}, HOPD=$${code.payments.HOPD}, ASC=$${code.payments.ASC}, OBL=$${code.payments.OBL}\n`;
-      }
-      contextString += '\n';
-    }
-  }
+  console.log('\n========================================');
+  console.log('Chat Request:', message.substring(0, 100) + (message.length > 100 ? '...' : ''));
+  console.log('========================================');
 
   try {
-    // Generate response using GenAI service
-    const result = await genaiService.generateChatResponse(
-      message,
-      SYSTEM_PROMPT,
-      contextString
-    );
+    // Initialize agent service if needed
+    await agentService.initialize();
 
-    res.json({
+    // Process through multi-agent system
+    const result = await agentService.processQuery(message, SYSTEM_PROMPT);
+
+    // Build response
+    const response = {
       text: result.text,
       citations: result.citations,
-      codeContext: codeContext.length > 0 ? codeContext : undefined,
-    });
+      queryType: result.queryType,
+      classification: result.classification,
+    };
+
+    // Add SQL-specific data if present
+    if (result.sqlQuery) {
+      response.sqlQuery = result.sqlQuery;
+      response.sqlExplanation = result.sqlExplanation;
+    }
+    
+    if (result.sqlResults) {
+      response.sqlResults = {
+        success: result.sqlResults.success,
+        queryType: result.sqlResults.queryType,
+        message: result.sqlResults.message,
+        previewExecuted: result.sqlResults.previewExecuted,
+        resultCount: result.sqlResults.data?.codes?.length || 
+                     (result.sqlResults.data?.code ? 1 : 0) ||
+                     (result.sqlResults.data?.stats ? 1 : 0) ||
+                     0,
+      };
+    }
+
+    // Add code context if present
+    if (result.codeContext && result.codeContext.length > 0) {
+      const codeDetails = getCodeContext(result.codeContext);
+      if (codeDetails.length > 0) {
+        response.codeContext = codeDetails;
+      }
+    }
+
+    console.log('Response query type:', response.queryType);
+    console.log('Response length:', response.text?.length || 0);
+    console.log('========================================\n');
+
+    res.json(response);
   } catch (error) {
     console.error('Chat error:', error);
     throw ApiError.internal('Failed to process chat message: ' + error.message);
   }
 };
 
-export default {
-  processChat,
+/**
+ * Get agent status
+ * GET /api/chat/status
+ */
+export const getAgentStatus = async (req, res) => {
+  const status = {
+    agentService: agentService.isInitialized,
+    codeService: codeService.isReady(),
+    codeStats: codeService.isReady() ? codeService.getStats() : null,
+    availableAgents: ['classifier', 'sql', 'pdf', 'general'],
+  };
+
+  res.json(status);
 };
 
+export default {
+  processChat,
+  getAgentStatus,
+};

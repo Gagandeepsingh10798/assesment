@@ -84,6 +84,14 @@ function Chatbot({ onUploadSuccess, onFileOperationStart, onFileOperationEnd, is
         role: 'assistant',
         content: response.data.text,
         citations: response.data.citations,
+        // Include query classification info
+        queryType: response.data.queryType,
+        classification: response.data.classification,
+        // SQL Agent specific data
+        sqlQuery: response.data.sqlQuery,
+        sqlExplanation: response.data.sqlExplanation,
+        sqlResults: response.data.sqlResults,
+        codeContext: response.data.codeContext,
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, assistantMessage]);
@@ -127,7 +135,7 @@ function Chatbot({ onUploadSuccess, onFileOperationStart, onFileOperationEnd, is
           setInputValue={setInputValue}
         />
         <div className="input-footer">
-          <p>AI can make mistakes. Please verify important information.</p>
+          <p>AI uses multi-agent routing: SQL queries, document search, and general knowledge.</p>
         </div>
       </div>
     </div>

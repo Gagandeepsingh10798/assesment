@@ -3,7 +3,7 @@
  * @swagger
  * tags:
  *   name: Chat
- *   description: AI chat endpoints
+ *   description: AI chat endpoints with Multi-Agent Orchestration
  */
 
 import { Router } from 'express';
@@ -16,7 +16,13 @@ const router = Router();
  * @swagger
  * /api/chat:
  *   post:
- *     summary: Send a message to the AI chat
+ *     summary: Send a message to the AI chat with multi-agent routing
+ *     description: |
+ *       Processes user queries through a multi-agent system:
+ *       1. Query Classifier - Determines if query is SQL, PDF, or General
+ *       2. SQL Agent - Handles database queries (code lookups, searches, filters)
+ *       3. PDF Agent - Handles document/file searches
+ *       4. General Agent - Handles conceptual questions (uses both sources)
  *     tags: [Chat]
  *     requestBody:
  *       required: true
@@ -29,10 +35,10 @@ const router = Router();
  *             properties:
  *               message:
  *                 type: string
- *                 example: "What is CPT code 36903?"
+ *                 example: "Show me all CPT codes related to cardiovascular procedures"
  *     responses:
  *       200:
- *         description: AI response
+ *         description: AI response with agent routing information
  *         content:
  *           application/json:
  *             schema:
@@ -40,6 +46,20 @@ const router = Router();
  *               properties:
  *                 text:
  *                   type: string
+ *                   description: AI-generated response
+ *                 queryType:
+ *                   type: string
+ *                   enum: [sql, pdf, general]
+ *                   description: Type of query as classified
+ *                 classification:
+ *                   type: object
+ *                   properties:
+ *                     type:
+ *                       type: string
+ *                     confidence:
+ *                       type: number
+ *                     reasoning:
+ *                       type: string
  *                 citations:
  *                   type: object
  *                   properties:
@@ -49,6 +69,18 @@ const router = Router();
  *                       type: array
  *                     processedChunks:
  *                       type: array
+ *                 sqlResults:
+ *                   type: object
+ *                   description: Present for SQL queries
+ *                   properties:
+ *                     success:
+ *                       type: boolean
+ *                     queryType:
+ *                       type: string
+ *                     message:
+ *                       type: string
+ *                     resultCount:
+ *                       type: number
  *                 codeContext:
  *                   type: array
  *                   items:
@@ -60,5 +92,32 @@ const router = Router();
  */
 router.post('/', asyncHandler(chatController.processChat));
 
-export default router;
+/**
+ * @swagger
+ * /api/chat/status:
+ *   get:
+ *     summary: Get agent system status
+ *     description: Returns the status of all agents and services
+ *     tags: [Chat]
+ *     responses:
+ *       200:
+ *         description: Agent status information
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 agentService:
+ *                   type: boolean
+ *                 codeService:
+ *                   type: boolean
+ *                 codeStats:
+ *                   type: object
+ *                 availableAgents:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ */
+router.get('/status', asyncHandler(chatController.getAgentStatus));
 
+export default router;
